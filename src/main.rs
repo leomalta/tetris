@@ -1,19 +1,20 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-use gui::MyApp;
+use gui::GameInterface;
 
 mod geometry;
-mod prototype;
-mod stash;
+mod blocks;
 mod tetris;
 mod tetronimo;
 mod utils;
 mod gui;
 
 fn main() {
+    // define global options
     let options = eframe::NativeOptions {
         resizable: false,
         ..eframe::NativeOptions::default()
     };
-    eframe::run_native("Tetris", options, Box::new(|cc| Box::new(MyApp::new(cc))));
+    // Start the main window thread with the Game Interface
+    eframe::run_native("Tetris", options, Box::new(|cc| Box::new(GameInterface::new(cc))));
 }

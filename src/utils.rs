@@ -1,79 +1,80 @@
-use std::error::Error;
-
-use eframe::epaint::RectShape;
-use egui::{Color32, FontData, FontDefinitions, FontFamily, Key, Pos2, Rect, Rounding, TextStyle};
-
 use crate::{
-    geometry::Block,
+    geometry::Position,
     tetris::{DisplayState, Event},
 };
+use eframe::epaint::RectShape;
+use egui::{
+    pos2, Color32, FontData, FontDefinitions, FontFamily, Key, Pos2, Rect, Rounding, Style,
+    TextStyle,
+};
 
-pub fn build_shapes(
-    blocks: &[Block],
+/// Returns the egui Rect position ready to be painted by the GUI
+fn get_rect(block_pos: Position, block_size: f32, gui_ref_pos: Pos2) -> Rect {
+    Rect::from_min_max(
+        pos2(
+            (block_pos.x as f32 * block_size) + gui_ref_pos.x,
+            (block_pos.y as f32 * block_size) + gui_ref_pos.y,
+        ),
+        pos2(
+            (1. + block_pos.x as f32) * block_size + gui_ref_pos.x,
+            (1. + block_pos.y as f32) * block_size + gui_ref_pos.y,
+        ),
+    )
+}
+
+/// Returns an iterator over all shapes from the blocks in input, ready to be painted
+pub fn build_blocks(
+    blocks: &[Position],
     block_size: f32,
     reference: Pos2,
     fill: Color32,
     stroke: Color32,
-) -> Vec<egui::Shape> {
-    blocks
-        .iter()
-        .map(|block| {
-            egui::Shape::Rect(RectShape {
-                rect: Rect {
-                    min: Pos2 {
-                        x: (block.x as f32 * block_size) + reference.x,
-                        y: (block.y as f32 * block_size) + reference.y,
-                    },
-                    max: Pos2 {
-                        x: (1. + block.x as f32) * block_size + reference.x,
-                        y: (1. + block.y as f32) * block_size + reference.y,
-                    },
-                },
-                rounding: Rounding::default(),
-                fill,
-                stroke: egui::Stroke::new(1.0, stroke),
-            })
-        })
-        .collect()
+) -> impl Iterator<Item = egui::Shape> + '_ {
+    blocks.iter().map(move |&block| {
+        RectShape {
+            rect: get_rect(block, block_size, reference),
+            rounding: Rounding::default(),
+            fill,
+            stroke: egui::Stroke::new(1.0, stroke),
+        }
+        .into()
+    })
 }
 
-pub fn build_scene_shapes(
+/// Returns an iterator over all shapes from the blocks of:
+/// - player tetronimo
+/// - projection
+/// - stash of blocks in the scene
+pub fn build_game_blocks(
     state: &DisplayState,
     block_size: f32,
     reference: Pos2,
-) -> Vec<egui::Shape> {
-    build_shapes(
+) -> impl Iterator<Item = egui::Shape> + '_ {
+    build_blocks(
         &state.player,
         block_size,
         reference,
         Color32::KHAKI,
         Color32::BLACK,
     )
-    .into_iter()
-    .chain(
-        build_shapes(
-            &state.projection,
-            block_size,
-            reference,
-            Color32::TRANSPARENT,
-            Color32::WHITE,
-        )
-        .into_iter(),
-    )
-    .chain(
-        build_shapes(
-            &state.blocks,
-            block_size,
-            reference,
-            Color32::DARK_RED,
-            Color32::BLACK,
-        )
-        .into_iter(),
-    )
-    .collect::<Vec<_>>()
+    .chain(build_blocks(
+        &state.projection,
+        block_size,
+        reference,
+        Color32::TRANSPARENT,
+        Color32::WHITE,
+    ))
+    .chain(build_blocks(
+        &state.blocks,
+        block_size,
+        reference,
+        Color32::DARK_RED,
+        Color32::BLACK,
+    ))
 }
 
-pub fn gather_input(ctx: &egui::Context) -> Option<Event> {
+/// Get the user input event from the Context, if any
+pub fn get_input_from_context(ctx: &egui::Context) -> Option<Event> {
     if ctx.input().key_pressed(Key::ArrowRight) {
         return Some(Event::MoveRight);
     } else if ctx.input().key_pressed(Key::ArrowLeft) {
@@ -88,53 +89,34 @@ pub fn gather_input(ctx: &egui::Context) -> Option<Event> {
     None
 }
 
+/// Load an image from the specified path
 pub fn load_image_from_path(path: &std::path::Path) -> Result<egui::ColorImage, image::ImageError> {
-    let image = image::io::Reader::open(path)?.decode()?;
-    let size = [image.width() as _, image.height() as _];
-    let image_buffer = image.to_rgba8();
-    let pixels = image_buffer.as_flat_samples();
-    Ok(egui::ColorImage::from_rgba_unmultiplied(
-        size,
-        pixels.as_slice(),
-    ))
+    image::io::Reader::open(path)?.decode().map(|image| {
+        egui::ColorImage::from_rgba_unmultiplied(
+            [image.width() as _, image.height() as _],
+            image.to_rgba8().as_flat_samples().as_slice(),
+        )
+    })
 }
 
-#[derive(Debug)]
-pub struct UiSetupError;
-impl std::fmt::Display for UiSetupError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "ERROR: UI Setup")
-    }
-}
-impl Error for UiSetupError {}
-
-pub fn set_style(cc: &eframe::CreationContext<'_>) -> Result<(), UiSetupError> {
+/// Sets the font type and size for the GUI
+pub fn set_font_style(cc: &eframe::CreationContext<'_>) {
+    // Sets font type
     let mut fonts = FontDefinitions::default();
-
     fonts.font_data.insert(
         "milky_coffee".to_owned(),
         FontData::from_static(include_bytes!("../resources/Milky_Coffee.ttf")),
     );
-
     fonts
         .families
-        .get_mut(&FontFamily::Proportional)
-        .ok_or(UiSetupError)?
+        .entry(FontFamily::Proportional)
+        .or_default()
         .insert(0, "milky_coffee".to_owned());
-
     cc.egui_ctx.set_fonts(fonts);
 
-    let mut style: egui::Style = (*cc.egui_ctx.style()).clone();
-    style
-        .text_styles
-        .get_mut(&TextStyle::Body)
-        .ok_or(UiSetupError)?
-        .size = 24.;
-    style
-        .text_styles
-        .get_mut(&TextStyle::Button)
-        .ok_or(UiSetupError)?
-        .size = 20.;
+    // Sets font sizes
+    let mut style = Style::default();
+    style.text_styles.entry(TextStyle::Body).or_default().size = 24.;
+    style.text_styles.entry(TextStyle::Button).or_default().size = 20.;
     cc.egui_ctx.set_style(style);
-    Ok(())
 }

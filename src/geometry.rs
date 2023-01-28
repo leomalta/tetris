@@ -1,24 +1,42 @@
+#[derive(Debug)]
+pub enum Direction {
+    Left,
+    Right,
+    Up,
+    Down,
+    Rotate,
+}
+
 #[derive(Default, PartialEq, Eq, Debug, Clone, Copy)]
-pub struct Block {
+pub struct Position {
     pub x: u8,
     pub y: u8,
 }
 
-#[derive(Debug, Clone, Copy)]
-pub struct Area {
-    pub min_x: u8,
-    pub max_x: u8,
-    pub min_y: u8,
-    pub max_y: u8,
+impl Position {
+    pub fn new(x: u8, y: u8) -> Self {
+        Self { x, y }
+    }
+
+    pub fn top_middle(&self) -> Position {
+        Position {
+            x: self.x / 2,
+            y: 0,
+        }
+    }
 }
 
-impl Area {
-    pub fn new(max_x: u8, max_y: u8) -> Self {
-        Self {
-            min_x: 0,
-            max_x,
-            min_y: 0,
-            max_y,
+#[cfg(test)]
+mod tests {
+    use crate::geometry::Position;
+
+    #[test]
+    fn position_test() {
+        {
+            assert_eq!(Position::new(4, 4).top_middle(), Position::new(2, 0));
+            assert_eq!(Position::new(0, 4).top_middle(), Position::new(0, 0));
+            assert_eq!(Position::new(0, 0).top_middle(), Position::new(0, 0));
+            assert_eq!(Position::new(11, 10).top_middle(), Position::new(5, 0));
         }
     }
 }
