@@ -51,7 +51,7 @@ impl GameInterface {
                 "logo",
                 load_image_from_path(std::path::Path::new("./resources/logo.png"))
                     .unwrap_or_default(),
-                egui::TextureFilter::default(),
+                Default::default(),
             ),
             // Create the game engine to be shared via a mutex
             engine: Arc::new(Mutex::new(Tetris::new(Position::new(10, 20)))),
@@ -81,16 +81,13 @@ impl GameInterface {
                 egui::Sense::focusable_noninteractive(),
             );
             // add the shapes of the next tetronimo to the painter
-            painter.extend(
-                build_blocks(
-                    &state.next,
-                    self.block_size,
-                    response.rect.left_top(),
-                    Color32::GOLD,
-                    Color32::BLACK,
-                )
-                .collect(),
-            );
+            painter.extend(build_blocks(
+                &state.next,
+                self.block_size,
+                response.rect.left_top(),
+                Color32::GOLD,
+                Color32::BLACK,
+            ));
             response
         };
         // Define the drawer for the entire stats panel
@@ -137,9 +134,11 @@ impl GameInterface {
                 egui::Sense::hover(),
             );
             // add the block shapes of the whole scence to the painter
-            painter.extend(
-                build_game_blocks(state, self.block_size, response.rect.left_top()).collect(),
-            );
+            painter.extend(build_game_blocks(
+                state,
+                self.block_size,
+                response.rect.left_top(),
+            ));
             response
         };
         // Draw the central panel (passing the drawer defined above)
